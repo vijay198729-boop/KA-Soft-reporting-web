@@ -1,0 +1,121 @@
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import { createClient } from '@supabase/supabase-js';
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const supabaseUrl = process.env.SUPABASE_URL;
+// Use Service Role Key for backend to allow admin actions (bypassing RLS if needed)
+let supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.warn('WARNING: SUPABASE_SERVICE_ROLE_KEY is missing. Database queries might fail due to RLS policies.');
+}
+
+if (!supabaseUrl || !supabaseKey) {
+  console.error('Missing Supabase Environment Variables (URL or Keys)');
+  process.exit(1);
+}
+
+// Clean the key: remove whitespace and surrounding quotes which might have been copied
+supabaseKey = supabaseKey.trim();
+if ((supabaseKey.startsWith('"') && supabaseKey.endsWith('"')) || (supabaseKey.startsWith("'") && supabaseKey.endsWith("'"))) {
+  supabaseKey = supabaseKey.slice(1, -1);
+}
+
+// Check for common copy-paste error where the label is included
+if (supabaseKey.includes(' ')) {
+  console.error('Error: The Supabase Key contains spaces. This is likely a copy-paste error (e.g. including "service_role key:").');
+  console.error(`Key found (first 20 chars): "${supabaseKey.substring(0, 20)}..."`);
+  console.error('Please update .env to contain ONLY the key string.');
+  process.exit(1);
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+const requireAuth = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'Missing Authorization Header' });
+
+  const token = authHeader.split(' ')[1];
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+
+  if (error || !user) return res.status(401).json({ error: 'Invalid Token' });
+
+  (req as any).user = user;
+  next();
+};
+
+// Helper to check if user is admin in our database
+const checkRole = async (email: string) => {
+  const { data } = await supabase
+    .from('allowed_users')
+    .select('role')
+    .ilike('email', email) // Case-insensitive match
+    .single();
+  return data?.role;
+};
+
+// Route: Get User Profile & Role
+app.get('/api/profile', requireAuth, async (req, res) => {
+  const user = (req as any).user;
+  console.log(`[API] Checking access for user: ${user.email}`);
+  
+  // Check if user exists in allowed_users table
+  const { data: profile, error } = await supabase
+    .from('allowed_users')
+    .select('*')
+    .ilike('email', user.email) // Case-insensitive match
+    .single();
+
+  if (error || !profile) {
+    if (error) console.error('[API] Database Error:', error.message);
+    else console.warn('[API] User not found in allowed_users table');
+    return res.status(403).json({ error: 'Access Denied: You are not in the allowed users list.' });
+  }
+
+  res.json({ ...user, role: profile.role });
+});
+
+// Route: Add New User (Admin Only)
+app.post('/api/users', requireAuth, async (req, res) => {
+  const user = (req as any).user;
+  const { email, role } = req.body;
+
+  // 1. Verify requester is an Admin
+  const requesterRole = await checkRole(user.email);
+  if (requesterRole !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can add users.' });
+  }
+
+  // 2. Add new user to allowed_users table
+  const { data, error } = await supabase
+    .from('allowed_users')
+    .insert([{ email, role: role || 'user' }])
+    .select();
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+app.get('/api/protected', requireAuth, (req, res) => {
+  const user = (req as any).user;
+  res.json({
+    message: 'Protected data from Node API',
+    user_id: user.id,
+    email: user.email
+  });
+});
+
+app.get('/', (req, res) => {
+  res.send({ message: 'API is running' });
+});
+
+const port = process.env.PORT || 3000;
+const server = app.listen(port, () => {
+  console.log(`Listening at http://localhost:${port}`);
+});
+server.on('error', console.error);
