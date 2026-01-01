@@ -1,1 +1,212 @@
-/* Your styles goes here. */
+.container {
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  background-color: #f0f2f5;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.header {
+  background-color: #ffffff;
+  padding: 0 24px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  z-index: 10;
+}
+
+.brand {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a73e8;
+  letter-spacing: -0.5px;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+}
+
+.loginContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  flex: 1;
+}
+
+.card {
+  background: white;
+  padding: 32px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  min-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 24px;
+}
+
+.btn {
+  background-color: #1a73e8;
+  color: white;
+  border: none;
+  padding: 10px 24px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn:hover {
+  background-color: #1557b0;
+}
+
+.btnSecondary {
+  background-color: transparent;
+  color: #5f6368;
+  border: 1px solid #dadce0;
+  padding: 8px 16px;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.btnSecondary:hover {
+  background-color: #f1f3f4;
+  color: #202124;
+}
+
+.input {
+  padding: 10px 12px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  margin-bottom: 16px;
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 14px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: #1a73e8;
+}
+
+.pre {
+  background-color: #f8f9fa;
+  padding: 16px;
+  border-radius: 4px;
+  border: 1px solid #e8eaed;
+  overflow-x: auto;
+  font-family: 'Roboto Mono', monospace;
+  font-size: 13px;
+  margin-top: 16px;
+}
+
+.welcomeTitle {
+  margin-top: 0;
+  color: #202124;
+}
+
+.accessDeniedContainer {
+  text-align: center;
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.12);
+}
+
+.errorTitle {
+  color: #d93025;
+  margin-top: 0;
+}
+
+.formGroup {
+  width: 100%;
+  margin-bottom: 10px;
+  text-align: left;
+}
+
+.label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: #3c4043;
+  font-size: 14px;
+}
+
+.toggleText {
+  margin-top: 20px;
+  font-size: 14px;
+  color: #5f6368;
+}
+
+.link {
+  color: #1a73e8;
+  cursor: pointer;
+  font-weight: 500;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.errorText {
+  color: #d93025;
+  font-size: 12px;
+  margin-top: 4px;
+  text-align: left;
+}
+
+.requiredStar {
+  color: #d93025;
+  margin-left: 4px;
+}
+
+.userList {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 20px;
+}
+
+.userList th,
+.userList td {
+  text-align: left;
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  font-size: 14px;
+}
+
+.userList th {
+  font-weight: 600;
+  color: #5f6368;
+}
+
+.deleteBtn {
+  background-color: #d93025;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.2s;
+}
+
+.deleteBtn:hover {
+  background-color: #b31412;
+}
+
+.deleteBtn:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}

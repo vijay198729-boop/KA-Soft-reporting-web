@@ -72,33 +72,84 @@ app.get('/api/profile', requireAuth, async (req, res) => {
     .single();
 
   if (error || !profile) {
-    if (error) console.error('[API] Database Error:', error.message);
-    else console.warn('[API] User not found in allowed_users table');
+    if (error) {
+      console.error('[API] Database Error:', error.message);
+      if (error.code === '42P01') {
+        console.error('[API] HINT: The "allowed_users" table does not exist. Please run "npx supabase db reset" to create it.');
+      }
+    } else console.warn('[API] User not found in allowed_users table');
     return res.status(403).json({ error: 'Access Denied: You are not in the allowed users list.' });
+  }
+
+  if (profile.role === 'pending') {
+    return res.status(403).json({ error: 'Access Pending: Your account is awaiting admin approval.' });
   }
 
   res.json({ ...user, role: profile.role });
 });
 
-// Route: Add New User (Admin Only)
-app.post('/api/users', requireAuth, async (req, res) => {
+// Route: Update User Role (Approve/Promote)
+app.put('/api/users/:email', requireAuth, async (req, res) => {
   const user = (req as any).user;
-  const { email, role } = req.body;
+  const emailToUpdate = req.params.email;
+  const { role } = req.body;
 
-  // 1. Verify requester is an Admin
-  const requesterRole = await checkRole(user.email);
-  if (requesterRole !== 'admin') {
-    return res.status(403).json({ error: 'Only admins can add users.' });
+  if (!role || !['admin', 'user', 'pending'].includes(role)) {
+    return res.status(400).json({ error: 'Invalid role' });
   }
 
-  // 2. Add new user to allowed_users table
+  const requesterRole = await checkRole(user.email);
+  if (requesterRole !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can update users.' });
+  }
+
   const { data, error } = await supabase
     .from('allowed_users')
-    .insert([{ email, role: role || 'user' }])
+    .update({ role })
+    .eq('email', emailToUpdate)
     .select();
 
   if (error) return res.status(400).json({ error: error.message });
   res.json(data);
+});
+
+// Route: Get All Users (Admin Only)
+app.get('/api/users', requireAuth, async (req, res) => {
+  const user = (req as any).user;
+  const requesterRole = await checkRole(user.email);
+
+  if (requesterRole !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can view users.' });
+  }
+
+  const { data, error } = await supabase
+    .from('allowed_users')
+    .select('*')
+    .order('created_at', { ascending: false });
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json(data);
+});
+
+// Route: Delete User (Admin Only)
+app.delete('/api/users/:email', requireAuth, async (req, res) => {
+  const user = (req as any).user;
+  const emailToDelete = req.params.email;
+
+  const requesterRole = await checkRole(user.email);
+  if (requesterRole !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can delete users.' });
+  }
+
+  // Prevent deleting yourself
+  if (emailToDelete.toLowerCase() === user.email.toLowerCase()) {
+    return res.status(400).json({ error: 'You cannot delete your own account.' });
+  }
+
+  const { error } = await supabase.from('allowed_users').delete().eq('email', emailToDelete);
+
+  if (error) return res.status(400).json({ error: error.message });
+  res.json({ message: 'User deleted successfully' });
 });
 
 app.get('/api/protected', requireAuth, (req, res) => {
