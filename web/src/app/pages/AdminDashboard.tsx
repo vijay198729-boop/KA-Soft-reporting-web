@@ -68,7 +68,7 @@ export const AdminDashboard = ({ session }: { session: Session }) => {
 
           <div style={{ marginBottom: '20px' }}>
             <Link to="/reporting" className={styles.link}>
-              Go to Reporting Dashboard
+              Go to Fancy Performance Calculator
             </Link>
           </div>
 

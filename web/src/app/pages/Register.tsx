@@ -60,7 +60,7 @@ export const Register = () => {
         <div className={styles.card} style={{ textAlign: 'center' }}>
           <h2 className={styles.welcomeTitle}>Create Account</h2>
           <p style={{ color: '#5f6368' }}>
-            Register to access the reporting dashboard.
+            Register to access the Fancy Performance Calculator.
           </p>
 
           <form onSubmit={handleRegister} style={{ marginTop: '20px' }}>

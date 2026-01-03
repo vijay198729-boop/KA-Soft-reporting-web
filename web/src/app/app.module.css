@@ -210,3 +210,234 @@
   background-color: #ccc;
   cursor: not-allowed;
 }
+
+/* Calculator Styles */
+.calcContainer {
+  width: 100%;
+  max-width: 1100px;
+  background-color: #ffffff;
+  border-radius: 16px;
+  padding: 32px;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.01);
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: #1e293b;
+}
+
+.calcHeader {
+  text-align: center;
+  margin-bottom: 32px;
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 24px;
+  letter-spacing: -0.02em;
+}
+
+.calcControls {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.radioGroup {
+  display: flex;
+  gap: 24px;
+  align-items: center;
+}
+
+.radioLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.radioLabelDisabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.selectGroup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.selectLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.modernSelect {
+  padding: 8px 12px;
+  font-size: 14px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background-color: #fff;
+  color: #334155;
+  min-width: 160px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.modernSelect:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.gridContainer {
+  display: grid;
+  grid-template-columns: 1fr 1fr 300px;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 32px;
+}
+
+.inputSection {
+  background-color: #f8fafc;
+  padding: 24px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+}
+
+.placeholderBox {
+  border: 2px dashed #cbd5e1;
+  background-color: #f1f5f9;
+  height: 100%;
+  min-height: 320px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+  text-align: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.actionButtons {
+  display: flex;
+  gap: 12px;
+  margin: 24px 0;
+  flex-wrap: wrap;
+}
+
+.modernBtn {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background-color: #ffffff;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+.modernBtn:hover {
+  background-color: #f8fafc;
+  border-color: #cbd5e1;
+  color: #1e293b;
+  transform: translateY(-1px);
+}
+
+.modernBtnPrimary {
+  background-color: #2563eb;
+  color: white;
+  border: 1px solid #2563eb;
+}
+
+.modernBtnPrimary:hover {
+  background-color: #1d4ed8;
+  color: white;
+}
+
+.resultsTableContainer {
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.resultsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  text-align: center;
+}
+
+.resultsTable th {
+  background-color: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+  padding: 16px;
+  border-bottom: 1px solid #e2e8f0;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.05em;
+}
+
+.resultsTable td {
+  padding: 20px;
+  color: #334155;
+  border-bottom: 1px solid #f1f5f9;
+  vertical-align: top;
+  line-height: 1.5;
+}
+
+.resultsTable tr:last-child td {
+  border-bottom: none;
+}
+
+.metricsContainer {
+  background-color: #ffffff;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  padding: 24px;
+}
+
+.metricRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.metricRow:last-child {
+  margin-bottom: 0;
+}
+
+.metricLabel {
+  width: 160px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+}
+
+.metricValue {
+  width: 60px;
+  text-align: right;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0f172a;
+  margin-left: 16px;
+}
+
+.rowLabel {
+  width: 140px;
+  font-size: 13px;
+  color: #475569;
+  font-weight: 500;
+}

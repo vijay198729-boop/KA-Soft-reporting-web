@@ -30,7 +30,7 @@ export const Login = () => {
         <div className={styles.card} style={{ textAlign: 'center' }}>
           <h2 className={styles.welcomeTitle}>Sign In</h2>
           <p style={{ color: '#5f6368' }}>
-            Please sign in to access the reporting dashboard.
+            Please sign in to access the Fancy Performance Calculator.
           </p>
 
           <form onSubmit={handleLogin} style={{ marginTop: '20px' }}>

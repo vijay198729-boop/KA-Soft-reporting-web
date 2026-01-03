@@ -5,7 +5,7 @@ import { Session } from '@supabase/supabase-js';
 import { Login } from './pages/Login';
 import { Register } from './pages/Register';
 import { AdminDashboard } from './pages/AdminDashboard';
-import { ReportingDashboard } from './pages/ReportingDashboard';
+import { FancyPerformanceCalculator } from './pages/FancyPerformanceCalculator';
 import { PendingApproval } from './pages/PendingApproval';
 import styles from './app.module.css'; // Used for Access Denied screen
 
@@ -118,7 +118,7 @@ function AppRoutes() {
         path="/reporting"
         element={
           session && (role === 'user' || role === 'admin') ? (
-            <ReportingDashboard session={session} />
+            <FancyPerformanceCalculator session={session} />
           ) : (
             <Navigate to="/" />
           )
