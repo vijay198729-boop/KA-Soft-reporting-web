@@ -283,7 +283,7 @@
   border: 1px solid #cbd5e1;
   background-color: #fff;
   color: #334155;
-  min-width: 160px;
+  min-width: 80px;
   outline: none;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -436,7 +436,7 @@
 }
 
 .rowLabel {
-  width: 140px;
+  width: 250px;
   font-size: 13px;
   color: #475569;
   font-weight: 500;

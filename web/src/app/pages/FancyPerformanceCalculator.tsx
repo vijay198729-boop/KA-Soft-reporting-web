@@ -43,6 +43,20 @@ const FIELD_CONFIG = {
     rounding: 1.0,
   },
   haD: { min: 40, max: 42, step: 0.5, txtKey: 'HA_D', rounding: 0.5 },
+  crownHeight: {
+    min: 0,
+    max: 100,
+    step: 0.5,
+    txtKey: 'CROWN_FANCY_CURVE_HEIGHT_PC',
+    rounding: 0.5,
+  },
+  pavilionCurve: {
+    min: 0,
+    max: 100,
+    step: 0.2,
+    txtKey: 'PAVILION_FANCY_CURVE_ANGLE_DEG',
+    rounding: 0.2,
+  },
 };
 
 // --- HELPERS ---
@@ -77,6 +91,8 @@ export const FancyPerformanceCalculator = ({
   const [azimuth, setAzimuth] = useState('');
   const [symmetry, setSymmetry] = useState('');
   const [cwDiff, setCwDiff] = useState('');
+  const [crownHeight, setCrownHeight] = useState('');
+  const [pavilionCurve, setPavilionCurve] = useState('');
 
   // Right side dropdown values
   const [halvesAngleAvg, setHalvesAngleAvg] = useState('');
@@ -112,6 +128,8 @@ export const FancyPerformanceCalculator = ({
     setStarRatio('');
     setHaD('');
     setShape('');
+    setCrownHeight('');
+    setPavilionCurve('');
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,6 +204,8 @@ export const FancyPerformanceCalculator = ({
     roundAndSet(setPavilionDepth, FIELD_CONFIG.pavilionDepth);
     roundAndSet(setLowerLHL, FIELD_CONFIG.lowerLHL);
     roundAndSet(setStarRatio, FIELD_CONFIG.starRatio);
+    roundAndSet(setCrownHeight, FIELD_CONFIG.crownHeight);
+    roundAndSet(setPavilionCurve, FIELD_CONFIG.pavilionCurve);
 
     // --- Non-numeric / Special Mappings ---
     const shapeValue = dataMap.get('SHAPE');
@@ -330,22 +350,38 @@ export const FancyPerformanceCalculator = ({
                   options={crownOptions}
                 />
                 <SelectRow
+                  label="Crown Height %"
+                  value={crownHeight}
+                  onChange={setCrownHeight}
+                  options={[]}
+                  disabled={true}
+                />
+                <SelectRow
                   label="Pavilion Depth"
                   value={pavilionDepth}
                   onChange={setPavilionDepth}
                   options={depthOptions}
                 />
                 <SelectRow
+                  label="Pavilion Curve °"
+                  value={pavilionCurve}
+                  onChange={setPavilionCurve}
+                  options={[]}
+                  disabled={true}
+                />
+                <SelectRow
                   label="Azimuth °"
                   value={azimuth}
                   onChange={setAzimuth}
                   options={gradeOptions}
+                  disabled={true}
                 />
                 <SelectRow
                   label="Symmetry"
                   value={symmetry}
                   onChange={setSymmetry}
                   options={gradeOptions}
+                  disabled={true}
                 />
                 {/* CW-DIFF is a calculated field, so we display it */}
                 <DisplayRow label="CW-DIFF" value={cwDiff} />
@@ -535,11 +571,13 @@ const SelectRow = ({
   value,
   onChange,
   options,
+  disabled,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: string[];
+  disabled?: boolean;
 }) => {
   // Ensure the current value is available in options so it displays correctly
   const uniqueOptions = Array.from(new Set([value, ...options])).filter(
@@ -553,7 +591,13 @@ const SelectRow = ({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className={styles.modernSelect}
-        style={{ width: '100%', minWidth: 0 }}
+        style={{
+          width: '100%',
+          minWidth: 0,
+          backgroundColor: disabled ? '#f1f5f9' : '#fff',
+          cursor: disabled ? 'not-allowed' : 'default',
+        }}
+        disabled={disabled}
       >
         {uniqueOptions.map((opt) => (
           <option key={opt} value={opt}>
