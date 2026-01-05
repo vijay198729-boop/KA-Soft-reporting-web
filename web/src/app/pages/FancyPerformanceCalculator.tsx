@@ -2,106 +2,26 @@ import { useState } from 'react';
 import { Session } from '@supabase/supabase-js';
 import styles from '../app.module.css';
 import { Header } from '../components/Header';
-
-// --- CONFIGURATION ---
-// Field limits and rounding rules. Update this object to match your Excel sheet.
-const FIELD_CONFIG = {
-  tableWidth: {
-    min: 48,
-    max: 72,
-    step: 1,
-    txtKey: 'WIDTH_TABLE_PC',
-    rounding: 1.0,
-  },
-  crown: {
-    min: 28,
-    max: 48,
-    step: 0.5,
-    txtKey: 'CROWN_FANCY_CURVE_ANGLE_DEG',
-    rounding: 0.5,
-  },
-  pavilionDepth: {
-    min: 35,
-    max: 55,
-    step: 0.2,
-    txtKey: 'PAVILION_DEPTH_PC',
-    rounding: 0.2,
-  },
-  halvesAngle: { min: 35.1, max: 48, step: 0.1 }, // For dropdown generation
-  lowerLHL: {
-    min: 65,
-    max: 85,
-    step: 1,
-    txtKey: 'LENGTH_GIRDLE_FACET',
-    rounding: 1.0,
-  },
-  starRatio: {
-    min: 35,
-    max: 65,
-    step: 1,
-    txtKey: 'STAR_RATIO_PC',
-    rounding: 1.0,
-  },
-  haD: { min: 40, max: 42, step: 0.5, txtKey: 'HA_D', rounding: 0.5 },
-  crownHeight: {
-    min: 0,
-    max: 100,
-    step: 0.5,
-    txtKey: 'CROWN_FANCY_CURVE_HEIGHT_PC',
-    rounding: 0.5,
-  },
-  pavilionCurve: {
-    min: 0,
-    max: 100,
-    step: 0.2,
-    txtKey: 'PAVILION_FANCY_CURVE_ANGLE_DEG',
-    rounding: 0.2,
-  },
-};
-
-// --- HELPERS ---
-
-/** Generates an array of string options for a dropdown based on a range. */
-const generateOptions = (min: number, max: number, step: number) => {
-  const options = [];
-  for (let val = min; val <= max + 0.0001; val += step) {
-    options.push(Number(val.toFixed(2)).toString());
-  }
-  return options;
-};
-
-/** Rounds a number to the nearest step and returns it as a formatted string. */
-const roundToStep = (value: number, step: number): string => {
-  if (step === 0) return value.toString();
-  const inverse = 1 / step;
-  const rounded = Math.round(value * inverse) / inverse;
-  const decimalPlaces = step.toString().split('.')[1]?.length || 0;
-  return rounded.toFixed(decimalPlaces);
-};
+import { SHAPE_LIBRARY, DEFAULT_CONFIG } from '../config/shapeConfig';
+import { generateOptions, roundToStep } from '../utils/calculatorUtils';
+import {
+  SelectRow,
+  DisplayRow,
+  MetricRow,
+} from '../components/CalculatorComponents';
 
 export const FancyPerformanceCalculator = ({
   session,
 }: {
   session: Session;
 }) => {
-  // Left side dropdown values
-  const [tableWidth, setTableWidth] = useState('');
-  const [crown, setCrown] = useState('');
-  const [pavilionDepth, setPavilionDepth] = useState('');
-  const [azimuth, setAzimuth] = useState('');
-  const [symmetry, setSymmetry] = useState('');
-  const [cwDiff, setCwDiff] = useState('');
-  const [crownHeight, setCrownHeight] = useState('');
-  const [pavilionCurve, setPavilionCurve] = useState('');
+  // Unified state for all form fields
+  const [formData, setFormData] = useState<Record<string, string>>({});
 
-  // Right side dropdown values
-  const [halvesAngleAvg, setHalvesAngleAvg] = useState('');
-  const [halvesAngleMin, setHalvesAngleMin] = useState('');
-  const [halvesAngleMax, setHalvesAngleMax] = useState('');
-  const [lowerLHL, setLowerLHL] = useState('');
-  const [starRatio, setStarRatio] = useState('');
-  const [haD, setHaD] = useState('');
-  const [shape, setShape] = useState(''); // Default to empty
+  // Helper to update a single field
+  const updateField = (field: string, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   // Static values for display
   const lightPerformance = 99;
@@ -115,21 +35,7 @@ export const FancyPerformanceCalculator = ({
   };
 
   const handleReset = () => {
-    setTableWidth('');
-    setCrown('');
-    setPavilionDepth('');
-    setAzimuth('');
-    setSymmetry('');
-    setCwDiff('');
-    setHalvesAngleAvg('');
-    setHalvesAngleMin('');
-    setHalvesAngleMax('');
-    setLowerLHL('');
-    setStarRatio('');
-    setHaD('');
-    setShape('');
-    setCrownHeight('');
-    setPavilionCurve('');
+    setFormData({});
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -154,9 +60,21 @@ export const FancyPerformanceCalculator = ({
       }
     });
 
+    // 1. Determine Shape
+    const shapeName = dataMap.get('SHAPE') || 'Pear';
+    const config = SHAPE_LIBRARY[shapeName] || DEFAULT_CONFIG;
+
+    // 2. Initialize new data object
+    const newData: Record<string, string> = {};
+    newData['shape'] = shapeName;
+
+    if (dataMap.has('AZIMUTH')) newData['azimuth'] = dataMap.get('AZIMUTH')!;
+    if (dataMap.has('SYMMETRY')) newData['symmetry'] = dataMap.get('SYMMETRY')!;
+
+    // 3. Helper to parse numbers
     const getNum = (key: string) => parseFloat(dataMap.get(key) || 'NaN');
 
-    // --- Calculated Fields ---
+    // 4. Common Calculations (can be moved to config.postProcess if they differ wildly)
     const halvesValues = [
       getNum('HALVES_ANGLE_DEG_1'),
       getNum('HALVES_ANGLE_DEG_8'),
@@ -166,91 +84,89 @@ export const FancyPerformanceCalculator = ({
 
     if (halvesValues.length > 0) {
       const avg = halvesValues.reduce((a, b) => a + b, 0) / halvesValues.length;
-      setHalvesAngleAvg(roundToStep(avg, 0.1));
-      setHalvesAngleMin(roundToStep(Math.min(...halvesValues), 0.1));
-      setHalvesAngleMax(roundToStep(Math.max(...halvesValues), 0.1));
+      newData['halvesAngleAvg'] = roundToStep(avg, 0.1);
+      newData['halvesAngleMin'] = roundToStep(Math.min(...halvesValues), 0.1);
+      newData['halvesAngleMax'] = roundToStep(Math.max(...halvesValues), 0.1);
     }
 
     const crownCurveAngle = getNum('CROWN_FANCY_CURVE_ANGLE_DEG');
     const crownWingAngle = getNum('CROWN_FANCY_WING_ANGLE_DEG');
     if (!isNaN(crownCurveAngle) && !isNaN(crownWingAngle)) {
       const diff = Math.abs(crownCurveAngle - crownWingAngle);
-      setCwDiff(roundToStep(diff, 0.1));
+      newData['cwDiff'] = roundToStep(diff, 0.1);
     }
 
     const haD12 = getNum('HALVES_ANGLE_DEG_12');
     const haD13 = getNum('HALVES_ANGLE_DEG_13');
     if (!isNaN(haD12) && !isNaN(haD13)) {
       const avg = (haD12 + haD13) / 2;
-      setHaD(roundToStep(avg, FIELD_CONFIG.haD.rounding));
+      // Use rounding from config if available, else default 0.5
+      const rounding = config.fields['haD']?.rounding || 0.5;
+      newData['haD'] = roundToStep(avg, rounding);
     }
 
-    // --- Direct Mappings with Rounding ---
-    const roundAndSet = (
-      setter: (val: string) => void,
-      config: { txtKey: string; rounding: number },
-    ) => {
-      const rawValue = dataMap.get(config.txtKey);
-      if (rawValue) {
-        const numValue = parseFloat(rawValue);
-        if (!isNaN(numValue)) {
-          setter(roundToStep(numValue, config.rounding));
+    // 5. Dynamic Field Mapping based on Config
+    Object.entries(config.fields).forEach(([stateKey, rule]) => {
+      if (rule.txtKey) {
+        const rawVal = dataMap.get(rule.txtKey);
+        if (rawVal) {
+          const numVal = parseFloat(rawVal);
+          if (!isNaN(numVal)) {
+            newData[stateKey] = roundToStep(numVal, rule.rounding || 1);
+          }
         }
       }
-    };
+    });
 
-    roundAndSet(setTableWidth, FIELD_CONFIG.tableWidth);
-    roundAndSet(setCrown, FIELD_CONFIG.crown);
-    roundAndSet(setPavilionDepth, FIELD_CONFIG.pavilionDepth);
-    roundAndSet(setLowerLHL, FIELD_CONFIG.lowerLHL);
-    roundAndSet(setStarRatio, FIELD_CONFIG.starRatio);
-    roundAndSet(setCrownHeight, FIELD_CONFIG.crownHeight);
-    roundAndSet(setPavilionCurve, FIELD_CONFIG.pavilionCurve);
-
-    // --- Non-numeric / Special Mappings ---
-    const shapeValue = dataMap.get('SHAPE');
-    if (shapeValue) {
-      setShape(shapeValue);
+    // 6. Execute custom post-processing if defined for this shape
+    if (config.postProcess) {
+      const processed = config.postProcess(dataMap, newData);
+      Object.assign(newData, processed);
     }
-    if (dataMap.has('AZIMUTH')) setAzimuth(dataMap.get('AZIMUTH')!);
-    if (dataMap.has('SYMMETRY')) setSymmetry(dataMap.get('SYMMETRY')!);
+
+    setFormData((prev) => ({ ...prev, ...newData }));
   };
+
+  // Determine which config to use for rendering options (default to Pear if not set)
+  const currentShape = formData['shape'] || 'Pear';
+  const activeConfig = SHAPE_LIBRARY[currentShape] || DEFAULT_CONFIG;
+  const fields = activeConfig.fields;
 
   // Generate options based on config
   const tableOptions = generateOptions(
-    FIELD_CONFIG.tableWidth.min,
-    FIELD_CONFIG.tableWidth.max,
-    FIELD_CONFIG.tableWidth.step,
+    fields.tableWidth?.min || 48,
+    fields.tableWidth?.max || 72,
+    fields.tableWidth?.step || 1,
   );
   const crownOptions = generateOptions(
-    FIELD_CONFIG.crown.min,
-    FIELD_CONFIG.crown.max,
-    FIELD_CONFIG.crown.step,
+    fields.crown?.min || 28,
+    fields.crown?.max || 48,
+    fields.crown?.step || 0.5,
   );
   const depthOptions = generateOptions(
-    FIELD_CONFIG.pavilionDepth.min,
-    FIELD_CONFIG.pavilionDepth.max,
-    FIELD_CONFIG.pavilionDepth.step,
+    fields.pavilionDepth?.min || 35,
+    fields.pavilionDepth?.max || 55,
+    fields.pavilionDepth?.step || 0.2,
   );
   const halvesOptions = generateOptions(
-    FIELD_CONFIG.halvesAngle.min,
-    FIELD_CONFIG.halvesAngle.max,
-    FIELD_CONFIG.halvesAngle.step,
+    fields.halvesAngle?.min || 35.1,
+    fields.halvesAngle?.max || 48,
+    fields.halvesAngle?.step || 0.1,
   );
   const lowerOptions = generateOptions(
-    FIELD_CONFIG.lowerLHL.min,
-    FIELD_CONFIG.lowerLHL.max,
-    FIELD_CONFIG.lowerLHL.step,
+    fields.lowerLHL?.min || 65,
+    fields.lowerLHL?.max || 85,
+    fields.lowerLHL?.step || 1,
   );
   const starOptions = generateOptions(
-    FIELD_CONFIG.starRatio.min,
-    FIELD_CONFIG.starRatio.max,
-    FIELD_CONFIG.starRatio.step,
+    fields.starRatio?.min || 35,
+    fields.starRatio?.max || 65,
+    fields.starRatio?.step || 1,
   );
   const haDOptions = generateOptions(
-    FIELD_CONFIG.haD.min,
-    FIELD_CONFIG.haD.max,
-    FIELD_CONFIG.haD.step,
+    fields.haD?.min || 40,
+    fields.haD?.max || 42,
+    fields.haD?.step || 0.5,
   );
   const shapeOptions = ['Pear 8 Mains', 'Round Brilliant', 'Oval', 'Princess'];
   const gradeOptions = ['EX', 'VG', 'G', 'F'];
@@ -317,12 +233,12 @@ export const FancyPerformanceCalculator = ({
               </label>
               <span className={styles.selectLabel}>Select Shape</span>
               <select
-                value={shape}
-                onChange={(e) => setShape(e.target.value)}
+                value={formData.shape || ''}
+                onChange={(e) => updateField('shape', e.target.value)}
                 className={styles.modernSelect}
               >
                 {/* Dynamically generate options */}
-                {Array.from(new Set([shape, ...shapeOptions]))
+                {Array.from(new Set([formData.shape, ...shapeOptions]))
                   .filter(Boolean)
                   .map((opt) => (
                     <option key={opt} value={opt}>
@@ -339,90 +255,90 @@ export const FancyPerformanceCalculator = ({
               <div className={styles.inputSection}>
                 <SelectRow
                   label="Table (Width) %"
-                  value={tableWidth}
-                  onChange={setTableWidth}
+                  value={formData.tableWidth || ''}
+                  onChange={(v) => updateField('tableWidth', v)}
                   options={tableOptions}
                 />
                 <SelectRow
                   label="Crown (Curve)"
-                  value={crown}
-                  onChange={setCrown}
+                  value={formData.crown || ''}
+                  onChange={(v) => updateField('crown', v)}
                   options={crownOptions}
                 />
                 <SelectRow
                   label="Crown Height %"
-                  value={crownHeight}
-                  onChange={setCrownHeight}
+                  value={formData.crownHeight || ''}
+                  onChange={(v) => updateField('crownHeight', v)}
                   options={[]}
                   disabled={true}
                 />
                 <SelectRow
                   label="Pavilion Depth"
-                  value={pavilionDepth}
-                  onChange={setPavilionDepth}
+                  value={formData.pavilionDepth || ''}
+                  onChange={(v) => updateField('pavilionDepth', v)}
                   options={depthOptions}
                 />
                 <SelectRow
                   label="Pavilion Curve °"
-                  value={pavilionCurve}
-                  onChange={setPavilionCurve}
+                  value={formData.pavilionCurve || ''}
+                  onChange={(v) => updateField('pavilionCurve', v)}
                   options={[]}
                   disabled={true}
                 />
                 <SelectRow
                   label="Azimuth °"
-                  value={azimuth}
-                  onChange={setAzimuth}
+                  value={formData.azimuth || ''}
+                  onChange={(v) => updateField('azimuth', v)}
                   options={gradeOptions}
                   disabled={true}
                 />
                 <SelectRow
                   label="Symmetry"
-                  value={symmetry}
-                  onChange={setSymmetry}
+                  value={formData.symmetry || ''}
+                  onChange={(v) => updateField('symmetry', v)}
                   options={gradeOptions}
                   disabled={true}
                 />
                 {/* CW-DIFF is a calculated field, so we display it */}
-                <DisplayRow label="CW-DIFF" value={cwDiff} />
+                <DisplayRow label="CW-DIFF" value={formData.cwDiff || ''} />
               </div>
 
               {/* middle column */}
               <div className={styles.inputSection}>
                 <SelectRow
                   label="Halves Angle (Avg)°"
-                  value={halvesAngleAvg}
-                  onChange={setHalvesAngleAvg}
+                  value={formData.halvesAngleAvg || ''}
+                  onChange={(v) => updateField('halvesAngleAvg', v)}
                   options={halvesOptions}
                 />
                 <SelectRow
                   label="Halves Angle (Min)°"
-                  value={halvesAngleMin}
-                  onChange={setHalvesAngleMin}
+                  value={formData.halvesAngleMin || ''}
+                  onChange={(v) => updateField('halvesAngleMin', v)}
                   options={halvesOptions}
                 />
                 <SelectRow
                   label="Halves Angle (Max)°"
-                  value={halvesAngleMax}
-                  onChange={setHalvesAngleMax}
+                  value={formData.halvesAngleMax || ''}
+                  onChange={(v) => updateField('halvesAngleMax', v)}
                   options={halvesOptions}
                 />
                 <SelectRow
                   label="Lower (LHL) %"
-                  value={lowerLHL}
-                  onChange={setLowerLHL}
+                  value={formData.lowerLHL || ''}
+                  onChange={(v) => updateField('lowerLHL', v)}
                   options={lowerOptions}
                 />
                 <SelectRow
                   label="Star Ratio (W) %"
-                  value={starRatio}
-                  onChange={setStarRatio}
+                  value={formData.starRatio || ''}
+                  onChange={(v) => updateField('starRatio', v)}
                   options={starOptions}
                 />
                 <SelectRow
                   label="HA-D"
-                  value={haD}
-                  onChange={setHaD}
+                  value={formData.haD || ''}
+                  onChange={(v) => updateField('haD', v)}
                   options={haDOptions}
                 />
               </div>
@@ -546,99 +462,3 @@ export const FancyPerformanceCalculator = ({
     </div>
   );
 };
-
-/* helpers */
-
-const DisplayRow = ({ label, value }: { label: string; value: string }) => (
-  <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-    <span className={styles.rowLabel}>{label}</span>
-    <div
-      className={styles.modernSelect}
-      style={{
-        width: '100%',
-        minWidth: 0,
-        backgroundColor: '#eef2ff',
-        cursor: 'default',
-      }}
-    >
-      {value || '-'}
-    </div>
-  </div>
-);
-
-const SelectRow = ({
-  label,
-  value,
-  onChange,
-  options,
-  disabled,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: string[];
-  disabled?: boolean;
-}) => {
-  // Ensure the current value is available in options so it displays correctly
-  const uniqueOptions = Array.from(new Set([value, ...options])).filter(
-    Boolean,
-  );
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
-      <span className={styles.rowLabel}>{label}</span>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className={styles.modernSelect}
-        style={{
-          width: '100%',
-          minWidth: 0,
-          backgroundColor: disabled ? '#f1f5f9' : '#fff',
-          cursor: disabled ? 'not-allowed' : 'default',
-        }}
-        disabled={disabled}
-      >
-        {uniqueOptions.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-};
-
-const MetricRow = ({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) => (
-  <div className={styles.metricRow}>
-    <span className={styles.metricLabel}>{label}</span>
-    <div
-      style={{
-        flex: 1,
-        height: 10,
-        backgroundColor: '#f1f5f9',
-        borderRadius: 5,
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
-          width: `${value}%`,
-          height: '100%',
-          backgroundColor: color,
-          borderRadius: 5,
-          transition: 'width 1s ease-out',
-        }}
-      />
-    </div>
-    <span className={styles.metricValue}>{value}%</span>
-  </div>
-);
