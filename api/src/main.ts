@@ -84,17 +84,20 @@ app.get('/api/profile', requireAuth, async (req, res) => {
   if (profile.role === 'pending') {
     return res.status(403).json({ error: 'Access Pending: Your account is awaiting admin approval.' });
   }
+  if (profile.role === 'disabled') {
+    return res.status(403).json({ error: 'Access Denied: Your account has been disabled.' });
+  }
 
   res.json({ ...user, role: profile.role });
 });
 
-// Route: Update User Role (Approve/Promote)
+// Route: Update User Role (Approve/Promote/Disable)
 app.put('/api/users/:email', requireAuth, async (req, res) => {
   const user = (req as any).user;
   const emailToUpdate = req.params.email;
   const { role } = req.body;
 
-  if (!role || !['admin', 'user', 'pending'].includes(role)) {
+  if (!role || !['admin', 'user', 'pending', 'disabled'].includes(role)) {
     return res.status(400).json({ error: 'Invalid role' });
   }
 

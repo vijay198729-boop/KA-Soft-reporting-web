@@ -211,6 +211,38 @@
   cursor: not-allowed;
 }
 
+.approveBtn {
+  background-color: #10b981;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-right: 8px;
+  transition: background-color 0.2s;
+}
+
+.approveBtn:hover {
+  background-color: #059669;
+}
+
+.disableBtn {
+  background-color: #f59e0b;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  margin-right: 8px;
+  transition: background-color 0.2s;
+}
+
+.disableBtn:hover {
+  background-color: #d97706;
+}
+
 /* Calculator Styles */
 .calcContainer {
   width: 100%;
