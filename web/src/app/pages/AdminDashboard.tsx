@@ -63,6 +63,14 @@ export const AdminDashboard = ({ session }: { session: Session }) => {
         },
         body: JSON.stringify({ role: newRole }),
       });
+
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('text/html')) {
+        throw new Error(
+          'API Error: Endpoint returned HTML. Check Vercel configuration.',
+        );
+      }
+
       if (!res.ok) throw new Error(await res.text());
       // Refresh list
       fetchUsers();
@@ -80,6 +88,14 @@ export const AdminDashboard = ({ session }: { session: Session }) => {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
+
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('text/html')) {
+        throw new Error(
+          'API Error: Endpoint returned HTML. Check Vercel configuration.',
+        );
+      }
+
       if (!res.ok) throw new Error(await res.text());
       fetchUsers();
     } catch (err: any) {
