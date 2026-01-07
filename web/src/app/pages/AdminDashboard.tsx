@@ -25,6 +25,7 @@ export const AdminDashboard = ({ session }: { session: Session }) => {
 
   const fetchUsers = async () => {
     try {
+      console.log(`[Dashboard] Fetching users from: ${API_BASE_URL}/api/users`);
       const res = await fetch(`${API_BASE_URL}/api/users`, {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
