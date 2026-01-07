@@ -38,11 +38,16 @@ function AppRoutes() {
     return () => subscription.unsubscribe();
   }, []);
 
+  const API_BASE_URL = (
+    import.meta.env.VITE_API_URL ||
+    (import.meta.env.DEV ? 'http://localhost:3100' : '')
+  ).replace(/\/$/, '');
+
   // Fetch Profile/Role whenever session changes
   useEffect(() => {
     if (session) {
       setLoadingRole(true);
-      fetch(`${import.meta.env.VITE_API_URL}/api/profile`, {
+      fetch(`${API_BASE_URL}/api/profile`, {
         headers: { Authorization: `Bearer ${session.access_token}` },
       })
         .then((res) => {
