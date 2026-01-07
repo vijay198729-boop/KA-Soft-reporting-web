@@ -12,7 +12,11 @@ type UserProfile = {
 };
 
 // Use environment variable for API URL, fallback to localhost for development
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3100';
+// Ensure VITE_API_URL is set in Vercel Project Settings > Environment Variables
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:3100' : '')
+).replace(/\/$/, '');
 
 export const AdminDashboard = ({ session }: { session: Session }) => {
   const [users, setUsers] = useState<UserProfile[]>([]);

@@ -4,6 +4,7 @@
   "license": "MIT",
   "scripts": {
     "dev": "PORT=3100 VITE_API_URL=http://localhost:3100 nx run-many --target=serve --projects=api,web",
+    "build": "nx build web",
     "supabase:init": "supabase init",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop",

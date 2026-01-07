@@ -169,7 +169,13 @@ app.get('/', (req, res) => {
 });
 
 const port = process.env.PORT || 3100;
-const server = app.listen(port, () => {
-  console.log(`Listening at http://localhost:${port}`);
-});
-server.on('error', console.error);
+
+// Export app for Vercel Serverless
+export default app;
+
+if (!process.env.VERCEL) {
+  const server = app.listen(port, () => {
+    console.log(`Listening at http://localhost:${port}`);
+  });
+  server.on('error', console.error);
+}
