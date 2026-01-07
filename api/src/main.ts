@@ -34,7 +34,19 @@ if (supabaseKey.includes(' ')) {
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Safety Check: Prevent trying to connect to localhost from Vercel
+if (process.env.VERCEL && supabaseUrl?.includes('localhost')) {
+  console.error('\n❌ CONFIGURATION ERROR: You are trying to connect to a "localhost" Supabase instance from Vercel.');
+  console.error('   Vercel servers cannot access your local machine. You must use a Supabase Cloud project URL.\n');
+}
+
+const supabase = createClient(supabaseUrl, supabaseKey, {
+  global: {
+    headers: { 'ngrok-skip-browser-warning': 'true' },
+  },
+});
+// Log the connection target to help debug ngrok issues in Vercel logs
+console.log(`[API] Connecting to Supabase at: ${supabaseUrl}`);
 
 const requireAuth = async (req, res, next) => {
   const authHeader = req.headers.authorization;
