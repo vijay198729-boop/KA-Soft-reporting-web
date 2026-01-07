@@ -30,6 +30,15 @@ export const AdminDashboard = ({ session }: { session: Session }) => {
           Authorization: `Bearer ${session.access_token}`,
         },
       });
+
+      // Check if the response is actually JSON (prevents "Unexpected token <" error)
+      const contentType = res.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error(
+          'API Configuration Error: Endpoint returned HTML instead of JSON. Check Vercel Root Directory settings.',
+        );
+      }
+
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
       setUsers(data);
