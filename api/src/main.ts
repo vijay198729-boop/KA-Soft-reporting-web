@@ -55,16 +55,21 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 console.log(`[API] Connecting to Supabase at: ${supabaseUrl}`);
 
 const requireAuth = async (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ error: 'Missing Authorization Header' });
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) return res.status(401).json({ error: 'Missing Authorization Header' });
 
-  const token = authHeader.split(' ')[1];
-  const { data: { user }, error } = await supabase.auth.getUser(token);
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error } = await supabase.auth.getUser(token);
 
-  if (error || !user) return res.status(401).json({ error: 'Invalid Token' });
+    if (error || !user) return res.status(401).json({ error: 'Invalid Token' });
 
-  (req as any).user = user;
-  next();
+    (req as any).user = user;
+    next();
+  } catch (err: any) {
+    console.error('[API] Auth Middleware Error:', err);
+    res.status(500).json({ error: 'Authentication Failed', details: err.message });
+  }
 };
 
 // Helper to check if user is admin in our database
@@ -79,34 +84,39 @@ const checkRole = async (email: string) => {
 
 // Route: Get User Profile & Role
 app.get('/api/profile', requireAuth, async (req, res) => {
-  const user = (req as any).user;
-  console.log(`[API] Checking access for user: ${user.email}`);
-  
-  // Check if user exists in allowed_users table
-  const { data: profile, error } = await supabase
-    .from('allowed_users')
-    .select('*')
-    .ilike('email', user.email) // Case-insensitive match
-    .single();
+  try {
+    const user = (req as any).user;
+    console.log(`[API] Checking access for user: ${user.email}`);
+    
+    // Check if user exists in allowed_users table
+    const { data: profile, error } = await supabase
+      .from('allowed_users')
+      .select('*')
+      .ilike('email', user.email) // Case-insensitive match
+      .single();
 
-  if (error || !profile) {
-    if (error) {
-      console.error('[API] Database Error:', error.message);
-      if (error.code === '42P01') {
-        console.error('[API] HINT: The "allowed_users" table does not exist. Please run "npx supabase db reset" to create it.');
-      }
-    } else console.warn('[API] User not found in allowed_users table');
-    return res.status(403).json({ error: 'Access Denied: You are not in the allowed users list.' });
-  }
+    if (error || !profile) {
+      if (error) {
+        console.error('[API] Database Error:', error.message);
+        if (error.code === '42P01') {
+          console.error('[API] HINT: The "allowed_users" table does not exist. Please run "npx supabase db reset" to create it.');
+        }
+      } else console.warn('[API] User not found in allowed_users table');
+      return res.status(403).json({ error: 'Access Denied: You are not in the allowed users list.' });
+    }
 
-  if (profile.role === 'pending') {
-    return res.status(403).json({ error: 'Access Pending: Your account is awaiting admin approval.' });
-  }
-  if (profile.role === 'disabled') {
-    return res.status(403).json({ error: 'Access Denied: Your account has been disabled.' });
-  }
+    if (profile.role === 'pending') {
+      return res.status(403).json({ error: 'Access Pending: Your account is awaiting admin approval.' });
+    }
+    if (profile.role === 'disabled') {
+      return res.status(403).json({ error: 'Access Denied: Your account has been disabled.' });
+    }
 
-  res.json({ ...user, role: profile.role });
+    res.json({ ...user, role: profile.role });
+  } catch (err: any) {
+    console.error('[API] Critical Error in /api/profile:', err);
+    res.status(500).json({ error: 'Internal Server Error', details: err.message });
+  }
 });
 
 // Route: Update User Role (Approve/Promote/Disable)
