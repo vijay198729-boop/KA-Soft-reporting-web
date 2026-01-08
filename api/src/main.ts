@@ -7,12 +7,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Log all incoming requests for debugging
-app.use((req, res, next) => {
-  console.log(`[Request] ${req.method} ${req.url}`);
-  next();
-});
-
 const supabaseUrl = process.env.SUPABASE_URL;
 // Use Service Role Key for backend to allow admin actions (bypassing RLS if needed)
 let supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
@@ -86,27 +80,39 @@ const checkRole = async (email: string) => {
 app.get('/api/profile', requireAuth, async (req, res) => {
   try {
     const user = (req as any).user;
-    console.log(`[API] Checking access for user: ${user.email}`);
     
     // Check if user exists in allowed_users table
     const { data: profile, error } = await supabase
       .from('allowed_users')
       .select('*')
       .ilike('email', user.email) // Case-insensitive match
-      .single();
+      .maybeSingle(); // Use maybeSingle to handle "not found" without throwing an error
 
-    if (error || !profile) {
-      if (error) {
-        console.error('[API] Database Error:', error.message);
-        if (error.code === '42P01') {
-          console.error('[API] HINT: The "allowed_users" table does not exist. Please run "npx supabase db reset" to create it.');
-        }
-      } else console.warn('[API] User not found in allowed_users table');
-      return res.status(403).json({ error: 'Access Denied: You are not in the allowed users list.' });
+    if (error) {
+      console.error('[API] Database Error:', error.message);
+      if (error.code === '42P01') {
+        console.error('[API] HINT: The "allowed_users" table does not exist. Please run "npx supabase db reset" to create it.');
+      }
+      return res.status(500).json({ error: 'Database error checking profile' });
+    }
+
+    // If user exists in Auth but not in allowed_users, auto-create them as pending
+    if (!profile) {
+      const { error: insertError } = await supabase
+        .from('allowed_users')
+        .insert([{ id: user.id, email: user.email, role: 'pending' }]);
+
+      if (insertError) {
+        console.error('[API] Failed to auto-create profile:', insertError.message);
+        // Return pending anyway so the UI shows the correct screen instead of crashing
+        return res.json({ ...user, role: 'pending' });
+      }
+      return res.json({ ...user, role: 'pending' });
     }
 
     if (profile.role === 'pending') {
-      return res.status(403).json({ error: 'Access Pending: Your account is awaiting admin approval.' });
+      // Return 200 so the frontend can render the "Pending Approval" screen instead of an error
+      return res.json({ ...user, role: 'pending' });
     }
     if (profile.role === 'disabled') {
       return res.status(403).json({ error: 'Access Denied: Your account has been disabled.' });
@@ -177,6 +183,24 @@ app.delete('/api/users/:email', requireAuth, async (req, res) => {
     return res.status(400).json({ error: 'You cannot delete your own account.' });
   }
 
+  // 1. Get User ID (UUID) from allowed_users to delete from Auth
+  const { data: targetUser, error: findError } = await supabase
+    .from('allowed_users')
+    .select('id')
+    .ilike('email', emailToDelete)
+    .single();
+
+  if (findError || !targetUser) {
+    return res.status(404).json({ error: 'User not found.' });
+  }
+
+  // 2. Delete from Supabase Auth (auth.users)
+  const { error: authError } = await supabase.auth.admin.deleteUser(targetUser.id);
+  if (authError) {
+    return res.status(400).json({ error: `Auth Deletion Failed: ${authError.message}` });
+  }
+
+  // 3. Delete from public table
   const { error } = await supabase.from('allowed_users').delete().eq('email', emailToDelete);
 
   if (error) return res.status(400).json({ error: error.message });

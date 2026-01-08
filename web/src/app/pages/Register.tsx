@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import styles from '../app.module.css';
 import { Header } from '../components/Header';
 
 export const Register = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -42,14 +43,24 @@ export const Register = () => {
       return;
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { name, company_name: companyName, phone },
       },
     });
-    if (error) setAuthError(error.message);
+    if (error) {
+      setAuthError(error.message);
+    } else if (data.session) {
+      // If email confirmation is disabled, user is logged in immediately.
+      navigate('/');
+    } else {
+      // Fallback if session is null (e.g. email confirmation enabled unexpectedly)
+      setAuthError(
+        'Registration successful. Please check your email to confirm your account.',
+      );
+    }
     setLoading(false);
   };
 
