@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
+import { Link } from 'react-router-dom';
 import styles from '../app.module.css';
 import { Header } from '../components/Header';
 import { SHAPE_LIBRARY, DEFAULT_CONFIG } from '../config/shapeConfig';
@@ -10,6 +11,11 @@ import {
   MetricRow,
 } from '../components/CalculatorComponents';
 
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:3100' : '')
+).replace(/\/$/, '');
+
 export const FancyPerformanceCalculator = ({
   session,
 }: {
@@ -17,6 +23,28 @@ export const FancyPerformanceCalculator = ({
 }) => {
   // Unified state for all form fields
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/profile`, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.role === 'admin') {
+            setIsAdmin(true);
+          }
+        }
+      } catch (err) {
+        console.error('Error checking admin status:', err);
+      }
+    };
+    if (session) checkAdmin();
+  }, [session]);
 
   // Helper to update a single field
   const updateField = (field: string, value: string) => {
@@ -176,6 +204,13 @@ export const FancyPerformanceCalculator = ({
       <Header session={session} />
       <main className={styles.main}>
         <div className={styles.calcContainer}>
+          {isAdmin && (
+            <div style={{ textAlign: 'right', marginBottom: '10px' }}>
+              <Link to="/admin" className={styles.link}>
+                Go to Admin Dashboard
+              </Link>
+            </div>
+          )}
           <h2 className={styles.calcHeader}>
             KA Software Fancy Performance Calculator{' '}
             <span
