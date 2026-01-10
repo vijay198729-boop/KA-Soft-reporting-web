@@ -76,6 +76,53 @@ const checkRole = async (email: string) => {
   return data?.role;
 };
 
+// Route: Register User (Public)
+app.post('/api/register', async (req, res) => {
+  const { email, password, name, companyName, phone } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ error: 'Email and password are required.' });
+  }
+
+  try {
+    // 1. Create user in Supabase Auth
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true, // Auto-confirm so they can login immediately (or set false if you want email verification)
+      user_metadata: { name, company_name: companyName, phone }
+    });
+
+    if (authError) throw authError;
+    if (!authData.user) throw new Error('User creation failed');
+
+    // 2. Insert into allowed_users
+    const { error: dbError } = await supabase
+      .from('allowed_users')
+      .insert([{
+        email: authData.user.email,
+        role: 'pending',
+        name,
+        company_name: companyName,
+        phone
+      }]);
+
+    if (dbError) {
+      // Rollback: delete auth user if db insert fails to keep consistency
+      await supabase.auth.admin.deleteUser(authData.user.id);
+      if (dbError.message?.includes('schema cache')) {
+        console.error('[API] Supabase Schema Cache is stale. Please run "NOTIFY pgrst, \'reload schema\';" in the Supabase SQL Editor.');
+      }
+      throw dbError;
+    }
+
+    res.json({ message: 'Registration successful', user: authData.user });
+  } catch (err: any) {
+    console.error('[API] Registration Error:', err);
+    res.status(400).json({ error: err.message });
+  }
+});
+
 // Route: Get User Profile & Role
 app.get('/api/profile', requireAuth, async (req, res) => {
   try {
@@ -98,12 +145,22 @@ app.get('/api/profile', requireAuth, async (req, res) => {
 
     // If user exists in Auth but not in allowed_users, auto-create them as pending
     if (!profile) {
+      const { name, company_name, phone } = user.user_metadata || {};
       const { error: insertError } = await supabase
         .from('allowed_users')
-        .insert([{ id: user.id, email: user.email, role: 'pending' }]);
+        .insert([{
+          email: user.email,
+          role: 'pending',
+          name: name || '',
+          company_name: company_name || '',
+          phone: phone || ''
+        }]);
 
       if (insertError) {
         console.error('[API] Failed to auto-create profile:', insertError.message);
+        if (insertError.message?.includes('schema cache')) {
+          console.error('[API] Supabase Schema Cache is stale. Please run "NOTIFY pgrst, \'reload schema\';" in the Supabase SQL Editor.');
+        }
         // Return pending anyway so the UI shows the correct screen instead of crashing
         return res.json({ ...user, role: 'pending' });
       }
@@ -186,7 +243,7 @@ app.delete('/api/users/:email', requireAuth, async (req, res) => {
   // 1. Get User ID (UUID) from allowed_users to delete from Auth
   const { data: targetUser, error: findError } = await supabase
     .from('allowed_users')
-    .select('id')
+    .select('*')
     .ilike('email', emailToDelete)
     .single();
 
@@ -195,9 +252,11 @@ app.delete('/api/users/:email', requireAuth, async (req, res) => {
   }
 
   // 2. Delete from Supabase Auth (auth.users)
-  const { error: authError } = await supabase.auth.admin.deleteUser(targetUser.id);
-  if (authError) {
-    return res.status(400).json({ error: `Auth Deletion Failed: ${authError.message}` });
+  if (targetUser.id) {
+    const { error: authError } = await supabase.auth.admin.deleteUser(targetUser.id);
+    if (authError) {
+      console.warn(`[API] Auth Deletion Failed: ${authError.message}`);
+    }
   }
 
   // 3. Delete from public table

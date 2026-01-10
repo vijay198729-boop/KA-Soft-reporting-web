@@ -4,6 +4,11 @@ import { supabase } from '../../supabaseClient';
 import styles from '../app.module.css';
 import { Header } from '../components/Header';
 
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL ||
+  (import.meta.env.DEV ? 'http://localhost:3100' : '')
+).replace(/\/$/, '');
+
 export const Register = () => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
@@ -43,23 +48,29 @@ export const Register = () => {
       return;
     }
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { name, company_name: companyName, phone },
-      },
-    });
-    if (error) {
-      setAuthError(error.message);
-    } else if (data.session) {
-      // If email confirmation is disabled, user is logged in immediately.
-      navigate('/');
-    } else {
-      // Fallback if session is null (e.g. email confirmation enabled unexpectedly)
-      setAuthError(
-        'Registration successful. Please check your email to confirm your account.',
-      );
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password, name, companyName, phone }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Registration failed');
+
+      // Registration successful - Auto-login to show Pending Approval screen
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        navigate('/login');
+      } else {
+        navigate('/');
+      }
+    } catch (err: any) {
+      setAuthError(err.message);
     }
     setLoading(false);
   };

@@ -5,16 +5,57 @@ import styles from '../app.module.css';
 import { Header } from '../components/Header';
 import { SHAPE_LIBRARY, DEFAULT_CONFIG } from '../config/shapeConfig';
 import { generateOptions, roundToStep } from '../utils/calculatorUtils';
-import {
-  SelectRow,
-  DisplayRow,
-  MetricRow,
-} from '../components/CalculatorComponents';
+import { DisplayRow, MetricRow } from '../components/CalculatorComponents';
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:3100' : '')
 ).replace(/\/$/, '');
+
+const SelectRow = ({
+  label,
+  value,
+  onChange,
+  options,
+  disabled,
+}: {
+  label: string;
+  value: string | number;
+  onChange: (val: string) => void;
+  options: (string | number)[];
+  disabled?: boolean;
+}) => {
+  // Ensure options come first so selected value doesn't jump to top unless it's the first option
+  const uniqueOptions = Array.from(
+    new Set([...options, value].map((v) => String(v))),
+  ).filter((v) => v !== '' && v !== 'undefined' && v !== 'null');
+
+  return (
+    <div
+      className={styles.selectGroup}
+      style={{
+        justifyContent: 'space-between',
+        marginBottom: '12px',
+        width: '100%',
+      }}
+    >
+      <label className={styles.selectLabel}>{label}</label>
+      <select
+        value={String(value)}
+        onChange={(e) => onChange(e.target.value)}
+        className={styles.modernSelect}
+        disabled={disabled}
+        style={{ minWidth: '100px' }}
+      >
+        {uniqueOptions.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+};
 
 export const FancyPerformanceCalculator = ({
   session,
@@ -273,7 +314,7 @@ export const FancyPerformanceCalculator = ({
                 className={styles.modernSelect}
               >
                 {/* Dynamically generate options */}
-                {Array.from(new Set([formData.shape, ...shapeOptions]))
+                {Array.from(new Set([...shapeOptions, formData.shape]))
                   .filter(Boolean)
                   .map((opt) => (
                     <option key={opt} value={opt}>
