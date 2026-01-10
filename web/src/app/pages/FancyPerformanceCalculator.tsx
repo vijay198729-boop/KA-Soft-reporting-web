@@ -3,59 +3,27 @@ import { Session } from '@supabase/supabase-js';
 import { Link } from 'react-router-dom';
 import styles from '../app.module.css';
 import { Header } from '../components/Header';
-import { SHAPE_LIBRARY, DEFAULT_CONFIG } from '../config/shapeConfig';
-import { generateOptions, roundToStep } from '../utils/calculatorUtils';
-import { DisplayRow, MetricRow } from '../components/CalculatorComponents';
+import {
+  SHAPE_LIBRARY,
+  DEFAULT_CONFIG,
+  SHAPE_VARIANTS,
+} from '../config/shapeConfig';
+import {
+  generateOptions,
+  roundToStep,
+  parseTextFileToMap,
+  calculateDerivedMetrics,
+} from '../utils/calculatorUtils';
+import {
+  SelectRow,
+  DisplayRow,
+  MetricRow,
+} from '../components/CalculatorComponents';
 
 const API_BASE_URL = (
   import.meta.env.VITE_API_URL ||
   (import.meta.env.DEV ? 'http://localhost:3100' : '')
 ).replace(/\/$/, '');
-
-const SelectRow = ({
-  label,
-  value,
-  onChange,
-  options,
-  disabled,
-}: {
-  label: string;
-  value: string | number;
-  onChange: (val: string) => void;
-  options: (string | number)[];
-  disabled?: boolean;
-}) => {
-  // Ensure options come first so selected value doesn't jump to top unless it's the first option
-  const uniqueOptions = Array.from(
-    new Set([...options, value].map((v) => String(v))),
-  ).filter((v) => v !== '' && v !== 'undefined' && v !== 'null');
-
-  return (
-    <div
-      className={styles.selectGroup}
-      style={{
-        justifyContent: 'space-between',
-        marginBottom: '12px',
-        width: '100%',
-      }}
-    >
-      <label className={styles.selectLabel}>{label}</label>
-      <select
-        value={String(value)}
-        onChange={(e) => onChange(e.target.value)}
-        className={styles.modernSelect}
-        disabled={disabled}
-        style={{ minWidth: '100px' }}
-      >
-        {uniqueOptions.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-};
 
 export const FancyPerformanceCalculator = ({
   session,
@@ -64,6 +32,7 @@ export const FancyPerformanceCalculator = ({
 }) => {
   // Unified state for all form fields
   const [formData, setFormData] = useState<Record<string, string>>({});
+  const [fileData, setFileData] = useState<Map<string, string> | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
@@ -105,6 +74,7 @@ export const FancyPerformanceCalculator = ({
 
   const handleReset = () => {
     setFormData({});
+    setFileData(null);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,23 +84,15 @@ export const FancyPerformanceCalculator = ({
     const reader = new FileReader();
     reader.onload = (event) => {
       const text = event.target?.result as string;
-      if (text) processFileData(text);
+      if (text) processFileContent(text);
     };
     reader.readAsText(file);
   };
 
-  const processFileData = (text: string) => {
-    const dataMap = new Map<string, string>();
-    const lines = text.split(/\r?\n/);
-    lines.forEach((line) => {
-      const parts = line.split('=');
-      if (parts.length >= 2) {
-        dataMap.set(parts[0].trim(), parts.slice(1).join('=').trim());
-      }
-    });
-
-    // 1. Determine Shape
-    const shapeName = dataMap.get('SHAPE') || 'Pear';
+  const calculateFormData = (
+    dataMap: Map<string, string>,
+    shapeName: string,
+  ) => {
     const config = SHAPE_LIBRARY[shapeName] || DEFAULT_CONFIG;
 
     // 2. Initialize new data object
@@ -140,41 +102,10 @@ export const FancyPerformanceCalculator = ({
     if (dataMap.has('AZIMUTH')) newData['azimuth'] = dataMap.get('AZIMUTH')!;
     if (dataMap.has('SYMMETRY')) newData['symmetry'] = dataMap.get('SYMMETRY')!;
 
-    // 3. Helper to parse numbers
-    const getNum = (key: string) => parseFloat(dataMap.get(key) || 'NaN');
+    // 3. Calculate derived metrics (Halves, CW Diff, etc.)
+    Object.assign(newData, calculateDerivedMetrics(dataMap));
 
-    // 4. Common Calculations (can be moved to config.postProcess if they differ wildly)
-    const halvesValues = [
-      getNum('HALVES_ANGLE_DEG_1'),
-      getNum('HALVES_ANGLE_DEG_8'),
-      getNum('HALVES_ANGLE_DEG_9'),
-      getNum('HALVES_ANGLE_DEG_16'),
-    ].filter((v) => !isNaN(v));
-
-    if (halvesValues.length > 0) {
-      const avg = halvesValues.reduce((a, b) => a + b, 0) / halvesValues.length;
-      newData['halvesAngleAvg'] = roundToStep(avg, 0.1);
-      newData['halvesAngleMin'] = roundToStep(Math.min(...halvesValues), 0.1);
-      newData['halvesAngleMax'] = roundToStep(Math.max(...halvesValues), 0.1);
-    }
-
-    const crownCurveAngle = getNum('CROWN_FANCY_CURVE_ANGLE_DEG');
-    const crownWingAngle = getNum('CROWN_FANCY_WING_ANGLE_DEG');
-    if (!isNaN(crownCurveAngle) && !isNaN(crownWingAngle)) {
-      const diff = Math.abs(crownCurveAngle - crownWingAngle);
-      newData['cwDiff'] = roundToStep(diff, 0.1);
-    }
-
-    const haD12 = getNum('HALVES_ANGLE_DEG_12');
-    const haD13 = getNum('HALVES_ANGLE_DEG_13');
-    if (!isNaN(haD12) && !isNaN(haD13)) {
-      const avg = (haD12 + haD13) / 2;
-      // Use rounding from config if available, else default 0.5
-      const rounding = config.fields['haD']?.rounding || 0.5;
-      newData['haD'] = roundToStep(avg, rounding);
-    }
-
-    // 5. Dynamic Field Mapping based on Config
+    // 4. Dynamic Field Mapping based on Config
     Object.entries(config.fields).forEach(([stateKey, rule]) => {
       if (rule.txtKey) {
         const rawVal = dataMap.get(rule.txtKey);
@@ -187,13 +118,38 @@ export const FancyPerformanceCalculator = ({
       }
     });
 
-    // 6. Execute custom post-processing if defined for this shape
+    // 5. Execute custom post-processing if defined for this shape
     if (config.postProcess) {
       const processed = config.postProcess(dataMap, newData);
       Object.assign(newData, processed);
     }
 
+    return newData;
+  };
+
+  const processFileContent = (text: string) => {
+    const dataMap = parseTextFileToMap(text);
+
+    setFileData(dataMap);
+
+    // 1. Determine Shape
+    const rawShape = dataMap.get('SHAPE') || 'Pear';
+    let shapeName = rawShape;
+    if (SHAPE_VARIANTS[rawShape]) {
+      shapeName = SHAPE_VARIANTS[rawShape](dataMap);
+    }
+
+    const newData = calculateFormData(dataMap, shapeName);
     setFormData((prev) => ({ ...prev, ...newData }));
+  };
+
+  const handleShapeChange = (newShape: string) => {
+    if (fileData) {
+      const newData = calculateFormData(fileData, newShape);
+      setFormData((prev) => ({ ...prev, ...newData }));
+    } else {
+      updateField('shape', newShape);
+    }
   };
 
   // Determine which config to use for rendering options (default to Pear if not set)
@@ -237,7 +193,7 @@ export const FancyPerformanceCalculator = ({
     fields.haD?.max || 42,
     fields.haD?.step || 0.5,
   );
-  const shapeOptions = ['Pear 8 Mains', 'Round Brilliant', 'Oval', 'Princess'];
+  const shapeOptions = Object.keys(SHAPE_LIBRARY);
   const gradeOptions = ['EX', 'VG', 'G', 'F'];
 
   return (
@@ -310,7 +266,7 @@ export const FancyPerformanceCalculator = ({
               <span className={styles.selectLabel}>Select Shape</span>
               <select
                 value={formData.shape || ''}
-                onChange={(e) => updateField('shape', e.target.value)}
+                onChange={(e) => handleShapeChange(e.target.value)}
                 className={styles.modernSelect}
               >
                 {/* Dynamically generate options */}

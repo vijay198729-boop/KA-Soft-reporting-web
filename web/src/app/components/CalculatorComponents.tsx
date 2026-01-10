@@ -32,21 +32,21 @@ export const SelectRow = ({
   disabled,
 }: {
   label: string;
-  value: string;
+  value: string | number;
   onChange: (v: string) => void;
-  options: string[];
+  options: (string | number)[];
   disabled?: boolean;
 }) => {
-  // Ensure the current value is available in options so it displays correctly
-  const uniqueOptions = Array.from(new Set([value, ...options])).filter(
-    Boolean,
-  );
+  // Ensure options come first so selected value doesn't jump to top unless it's the first option
+  const uniqueOptions = Array.from(
+    new Set([...options, value].map((v) => String(v))),
+  ).filter((v) => v !== '' && v !== 'undefined' && v !== 'null');
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', marginBottom: 12 }}>
       <span className={styles.rowLabel}>{label}</span>
       <select
-        value={value}
+        value={String(value)}
         onChange={(e) => onChange(e.target.value)}
         className={styles.modernSelect}
         style={{
