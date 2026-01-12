@@ -112,7 +112,9 @@ export const FancyPerformanceCalculator = ({
         if (rawVal) {
           const numVal = parseFloat(rawVal);
           if (!isNaN(numVal)) {
-            newData[stateKey] = roundToStep(numVal, rule.rounding || 1);
+            const rounding =
+              stateKey === 'pavilionCurve' ? 0.2 : rule.rounding || 1;
+            newData[stateKey] = roundToStep(numVal, rounding);
           }
         }
       }
