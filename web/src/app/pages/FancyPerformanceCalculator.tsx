@@ -34,6 +34,11 @@ export const FancyPerformanceCalculator = ({
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [fileData, setFileData] = useState<Map<string, string> | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [calculatedGrades, setCalculatedGrades] = useState<{
+    kgs: number | null;
+    feye: number | null;
+    bowtie: number | null;
+  }>({ kgs: null, feye: null, bowtie: null });
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -56,9 +61,65 @@ export const FancyPerformanceCalculator = ({
     if (session) checkAdmin();
   }, [session]);
 
+  // Fetch calculated grades when relevant fields change
+  useEffect(() => {
+    const fetchGrades = async () => {
+      const { tableWidth, crown, pavilionDepth, shape, halvesAngleAvg } =
+        formData;
+
+      if (!tableWidth || !crown || !pavilionDepth) {
+        setCalculatedGrades({ kgs: null, feye: null, bowtie: null });
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/calculate-grades`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            tableWidth,
+            crown,
+            pavilionDepth,
+            shape,
+            halvesAngleAvg,
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setCalculatedGrades(data);
+        }
+      } catch (err) {
+        console.error('Error fetching grades:', err);
+      }
+    };
+    fetchGrades();
+  }, [
+    formData.tableWidth,
+    formData.crown,
+    formData.pavilionDepth,
+    formData.shape,
+    formData.halvesAngleAvg,
+    session,
+  ]);
+
   // Helper to update a single field
   const updateField = (field: string, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const updated = { ...prev, [field]: value };
+      // Auto-calculate Halves Angle Avg if Min or Max changes
+      if (field === 'halvesAngleMin' || field === 'halvesAngleMax') {
+        const min = parseFloat(updated.halvesAngleMin);
+        const max = parseFloat(updated.halvesAngleMax);
+        if (!isNaN(min) && !isNaN(max)) {
+          updated.halvesAngleAvg = ((min + max) / 2).toFixed(1);
+        }
+      }
+      return updated;
+    });
   };
 
   // Static values for display
@@ -344,6 +405,7 @@ export const FancyPerformanceCalculator = ({
                   value={formData.halvesAngleAvg || ''}
                   onChange={(v) => updateField('halvesAngleAvg', v)}
                   options={halvesOptions}
+                  disabled={true}
                 />
                 <SelectRow
                   label="Halves Angle (Min)°"
@@ -432,22 +494,32 @@ export const FancyPerformanceCalculator = ({
                           color: '#2563eb',
                         }}
                       >
-                        1
+                        {calculatedGrades.kgs !== null
+                          ? calculatedGrades.kgs
+                          : '-'}
                       </div>
                       <div style={{ fontSize: 12, color: '#64748b' }}>
-                        Excellent
+                        {/* Grade Label */}
                       </div>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>0</div>
+                      <div style={{ fontWeight: 600 }}>
+                        {calculatedGrades.bowtie !== null
+                          ? calculatedGrades.bowtie
+                          : '-'}
+                      </div>
                       <div style={{ fontSize: 12, color: '#64748b' }}>
                         Ideal
                       </div>
                     </td>
                     <td>
-                      <div style={{ fontWeight: 600 }}>1</div>
+                      <div style={{ fontWeight: 600 }}>
+                        {calculatedGrades.feye !== null
+                          ? calculatedGrades.feye
+                          : '-'}
+                      </div>
                       <div style={{ fontSize: 12, color: '#64748b' }}>
-                        Excellent
+                        {/* Grade Label */}
                       </div>
                     </td>
                     <td>

@@ -266,6 +266,98 @@ app.delete('/api/users/:email', requireAuth, async (req, res) => {
   res.json({ message: 'User deleted successfully' });
 });
 
+// Route: Calculate Grades (KA LR Grade & Fish Eye)
+app.post('/api/calculate-grades', requireAuth, async (req, res) => {
+  const { tableWidth, crown, pavilionDepth, shape, halvesAngleAvg } = req.body;
+
+  if (!tableWidth || !crown || !pavilionDepth) {
+    return res.status(400).json({ error: 'Missing required parameters' });
+  }
+
+  try {
+    let kgs = null;
+    let feye = null;
+    let bowtie = null;
+
+    let mainTable = '';
+    let bowtieTable = '';
+    // Define default column names, for Pear 8 Mains
+    const mainTableCols = {
+      table: 'TABLE_PC_MIN',
+      crown: 'CROWN_FANCY_CURVE_ANGLE_DEG',
+      pavilion: 'PAVILION_DEPTH_PC',
+    };
+    const bowtieCols = {
+      hMin: 'HMIN',
+      hMax: 'HMAX',
+    };
+
+    if (shape === 'Pear 8 Mains') {
+      mainTable = 'LPear_ImageViewerData';
+      bowtieTable = 'LPear_ImageViewerData_BWT_AI';
+    } else if (shape === 'Pear 4 Mains') {
+      mainTable = 'Pear2_ImageViewerData';
+      bowtieTable = 'Pear2_ImageViewer_Data_AI';
+    }
+
+    if (mainTable) {
+      console.log(`[API] Querying ${mainTable} for ${shape}`, {
+        [mainTableCols.table]: tableWidth,
+        [mainTableCols.crown]: crown,
+        [mainTableCols.pavilion]: pavilionDepth
+      });
+
+      // Query mainTable for KGS and FEYE based on inputs
+      const { data, error } = await supabase
+        .from(mainTable)
+        .select('KGS, FEYE')
+        .eq(mainTableCols.table, tableWidth)
+        .eq(mainTableCols.crown, crown)
+        .eq(mainTableCols.pavilion, pavilionDepth);
+
+      if (error) {
+        console.error(`[API] Error querying ${mainTable}:`, error);
+        throw error;
+      }
+      console.log(`[API] ${mainTable} returned ${data?.length} rows`);
+
+      if (data && data.length > 0) {
+        // Get lowest values as requested
+        const kgsValues = data.map((d) => parseFloat(d.KGS)).filter((n) => !isNaN(n));
+        const feyeValues = data.map((d) => parseFloat(d.FEYE)).filter((n) => !isNaN(n));
+
+        kgs = kgsValues.length > 0 ? Math.min(...kgsValues) : null;
+        feye = feyeValues.length > 0 ? Math.min(...feyeValues) : null;
+      }
+
+      // Calculate Bowtie Grade (Bgrade/KGS)
+      if (halvesAngleAvg && bowtieTable) {
+        const halvesAvgNum = parseFloat(halvesAngleAvg);
+        if (!isNaN(halvesAvgNum)) {
+          const { data: bwtData, error: bwtError } = await supabase
+            .from(bowtieTable)
+            .select('KGS')
+            .eq('CROWN_FANCY_CURVE_ANGLE_DEG', crown)
+            .lte(bowtieCols.hMin, halvesAvgNum)
+            .gte(bowtieCols.hMax, halvesAvgNum);
+
+          if (bwtError) {
+            console.error('[API] Bowtie Calculation Error:', bwtError);
+          } else if (bwtData && bwtData.length > 0) {
+            const bwtValues = bwtData.map((d) => parseFloat(d.KGS)).filter((n) => !isNaN(n));
+            bowtie = bwtValues.length > 0 ? Math.min(...bwtValues) : null;
+          }
+        }
+      }
+    }
+
+    res.json({ kgs, feye, bowtie });
+  } catch (err: any) {
+    console.error('[API] Calculation Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/protected', requireAuth, (req, res) => {
   const user = (req as any).user;
   res.json({
