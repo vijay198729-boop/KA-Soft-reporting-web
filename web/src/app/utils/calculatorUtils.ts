@@ -37,12 +37,15 @@ export const calculateDerivedMetrics = (
   const getNum = (key: string) => parseFloat(dataMap.get(key) || 'NaN');
 
   // Halves
-  const halvesValues = [
-    getNum('HALVES_ANGLE_DEG_1'),
-    getNum('HALVES_ANGLE_DEG_8'),
-    getNum('HALVES_ANGLE_DEG_9'),
-    getNum('HALVES_ANGLE_DEG_16'),
-  ].filter((v) => !isNaN(v));
+  const h1 = getNum('HALVES_ANGLE_DEG_1');
+  const p1 = getNum('PAVILION_FANCY_CURVE_ANGLE_DEG_1');
+
+  let halvesIndices = [1, 8, 9, 16];
+  if (!isNaN(h1) && !isNaN(p1) && h1 <= p1) {
+    halvesIndices = [16, 7, 8, 15];
+  }
+
+  const halvesValues = halvesIndices.map((i) => getNum(`HALVES_ANGLE_DEG_${i}`)).filter((v) => !isNaN(v));
 
   if (halvesValues.length > 0) {
     const avg = halvesValues.reduce((a, b) => a + b, 0) / halvesValues.length;
